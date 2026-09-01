@@ -1,0 +1,30 @@
+{
+  "name": "donut-nation-2-bot",
+  "version": "1.0.0",
+  "description": "Production Discord bot for the Donut Nation 2 Minecraft / Donut SMP community",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js",
+    "dev": "node src/index.js",
+    "test": "node src/logic-test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "minecraft",
+    "donut-smp",
+    "giveaway"
+  ],
+  "author": "Donut Nation 2",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3"
+  }
+}
