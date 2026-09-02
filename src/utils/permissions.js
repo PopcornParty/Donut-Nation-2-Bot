@@ -27,10 +27,17 @@ function memberRoleIds(member) {
   return member.roles || [];
 }
 
-function hasConfiguredRole(member, roleIds) {
-  if (!roleIds || !roleIds.length) return false;
+function usableRoleIds(roleIds, guildId) {
+  return (roleIds || [])
+    .map(String)
+    .filter((id) => id && id !== String(guildId));
+}
+
+function hasConfiguredRole(member, roleIds, guildId) {
+  const usable = usableRoleIds(roleIds, guildId || (member && member.guild && member.guild.id));
+  if (!usable.length) return false;
   const owned = new Set(memberRoleIds(member));
-  return roleIds.some((id) => owned.has(String(id)));
+  return usable.some((id) => owned.has(id));
 }
 
 function isHardcodedDev(id) {
@@ -63,10 +70,10 @@ function getAccess(member, guildId, user) {
     member && cfg && Array.isArray(cfg.owner_user_ids) && cfg.owner_user_ids.map(String).includes(String(member.id))
   );
   const owner = root || extraOwner;
-  const admin = owner || hasConfiguredRole(member, cfg.admin_role_ids);
-  const staff = admin || hasConfiguredRole(member, cfg.staff_role_ids);
-  const builder = staff || (cfg.builder_role_id && memberRoleIds(member).includes(cfg.builder_role_id));
-  const customer = staff || (cfg.customer_role_id && memberRoleIds(member).includes(cfg.customer_role_id));
+  const admin = owner || hasConfiguredRole(member, cfg.admin_role_ids, guildId);
+  const staff = admin || hasConfiguredRole(member, cfg.staff_role_ids, guildId);
+  const builder = staff || (cfg.builder_role_id && cfg.builder_role_id !== String(guildId) && memberRoleIds(member).includes(cfg.builder_role_id));
+  const customer = staff || (cfg.customer_role_id && cfg.customer_role_id !== String(guildId) && memberRoleIds(member).includes(cfg.customer_role_id));
   return { dev: root, owner, admin, staff, builder, customer, root, config: cfg };
 }
 
