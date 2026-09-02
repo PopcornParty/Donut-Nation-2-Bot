@@ -8,7 +8,7 @@ const {
 } = require('discord.js');
 const { getConfig, updateConfig, logEvent } = require('../db');
 const { requireAccess, getAccess } = require('../utils/permissions');
-const { base, success, error, THEME, statusEmoji } = require('../utils/embeds');
+const { base, success, error, THEME } = require('../utils/embeds');
 const { parseDuration, parseTimeHHMM, sanitizeText, formatMoney } = require('../utils/parse');
 const giveaways = require('../systems/giveaways');
 const payments = require('../systems/payments');
@@ -36,6 +36,7 @@ async function handleHelp(interaction) {
   if (access.builder || access.staff) lines.push('', '**Builders**', '`/builder balance` `/build complete` `/build list`');
   if (access.staff) lines.push('', '**Staff**', '`/giveaway *` `/payment *` `/price add|update|remove`');
   if (access.admin) lines.push('', '**Admins**', '`/config` `/partner *` `/dailygiveaway *`');
+  if (access.owner) lines.push('', '**Owner**', 'Set Admin: `/config set` key Admin role', 'Then Staff: `/config set` key Staff role', 'Optional extra owner: `/config set` key Extra owner');
   return interaction.reply({ ephemeral: true, embeds: [base('Donut Nation 2 Commands', THEME.pink).setDescription(lines.join('\n'))] });
 }
 
@@ -51,6 +52,9 @@ async function handleConfig(interaction) {
       { name: 'Build log', value: cfg.build_log_channel_id ? '<#' + cfg.build_log_channel_id + '>' : '-', inline: true },
       { name: 'Daily channel', value: cfg.daily_giveaway_channel_id ? '<#' + cfg.daily_giveaway_channel_id + '>' : '-', inline: true },
       { name: 'Partnership channel', value: cfg.partnership_channel_id ? '<#' + cfg.partnership_channel_id + '>' : '-', inline: true },
+      { name: 'Admin roles', value: (cfg.admin_role_ids || []).length ? cfg.admin_role_ids.map((id) => '<@&' + id + '>').join(' ') : '-', inline: false },
+      { name: 'Staff roles', value: (cfg.staff_role_ids || []).length ? cfg.staff_role_ids.map((id) => '<@&' + id + '>').join(' ') : '-', inline: false },
+      { name: 'Extra owners', value: (cfg.owner_user_ids || []).length ? cfg.owner_user_ids.map((id) => '<@' + id + '>').join(' ') : 'None', inline: false },
       { name: 'Tax', value: String(cfg.tax_percent) + '%', inline: true }
     );
     const menu = new ActionRowBuilder().addComponents(
@@ -66,8 +70,12 @@ async function handleConfig(interaction) {
   const key = interaction.options.getString('key', true);
   const channel = interaction.options.getChannel('channel');
   const role = interaction.options.getRole('role');
+  const user = interaction.options.getUser('user');
   const number = interaction.options.getNumber('number');
   const patch = {};
+  if ((key === 'admin_role_add' || key === 'owner_user_add') && !gate.access.owner) {
+    return deny(interaction, 'Only the server owner can add admins or extra owners.');
+  }
   if (key.endsWith('_channel_id')) {
     if (!channel) return deny(interaction, 'Pick a channel.');
     patch[key] = channel.id;
@@ -80,6 +88,9 @@ async function handleConfig(interaction) {
   } else if (key === 'admin_role_add') {
     if (!role) return deny(interaction, 'Pick a role.');
     patch.admin_role_ids = Array.from(new Set([].concat(cfg.admin_role_ids || [], [role.id])));
+  } else if (key === 'owner_user_add') {
+    if (!user) return deny(interaction, 'Pick a user.');
+    patch.owner_user_ids = Array.from(new Set([].concat(cfg.owner_user_ids || [], [user.id])));
   } else if (key === 'tax_percent') {
     if (number === null || number < 0 || number > 100) return deny(interaction, 'Tax must be 0-100.');
     patch.tax_percent = number;
@@ -124,17 +135,47 @@ async function handleGiveaway(interaction, client) {
     if (!gate.ok) return deny(interaction, gate.message);
   }
   if (sub === 'create') {
+    const prize = sanitizeText(interaction.options.getString('prize', true), 100);
+    const durationRaw = interaction.options.getString('duration', true);
+    const durationMs = parseDuration(durationRaw);
+    const winners = interaction.options.getInteger('winners', true);
+    const host = interaction.options.getUser('host', true);
     const mode = interaction.options.getString('mode') || 'standard';
-    const channel = interaction.options.getChannel('channel');
-    const modal = new ModalBuilder().setCustomId('modal_gw_create:' + mode + ':' + (channel ? channel.id : 'default')).setTitle('Create giveaway');
-    modal.addComponents(
-      input('prize', 'Prize', TextInputStyle.Short, true, { max: 100 }),
-      input('duration', 'Duration (e.g. 10m, 2h, 1d)', TextInputStyle.Short, true),
-      input('winners', 'Number of winners', TextInputStyle.Short, true, { value: '1' }),
-      input('description', 'Description (optional)', TextInputStyle.Paragraph, false),
-      input('extras', 'Image URL | requirements (optional)', TextInputStyle.Paragraph, false)
-    );
-    return interaction.showModal(modal);
+    const channelOpt = interaction.options.getChannel('channel');
+    const description = sanitizeText(interaction.options.getString('description') || '', 500) || null;
+    if (!prize) return deny(interaction, 'Prize is required.');
+    if (!durationMs) return deny(interaction, 'Use a time like 10m, 2h, or 1d.');
+    const cfg = getConfig(interaction.guildId);
+    const channelId = channelOpt ? channelOpt.id : cfg.giveaway_channel_id || interaction.channelId;
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel) return deny(interaction, 'Could not find the giveaway channel.');
+    const extra = {};
+    if (mode === 'fast_click') {
+      extra.armAt = Date.now() + 3000 + Math.floor(Math.random() * 7000);
+      extra.armed = false;
+    }
+    const row = giveaways.createGiveawayRecord({
+      guildId: interaction.guildId,
+      channelId: channel.id,
+      prize,
+      description,
+      winnersCount: winners,
+      hostId: host.id,
+      hostName: host.username,
+      mode: giveaways.MODES.includes(mode) ? mode : 'standard',
+      endsAt: new Date(Date.now() + durationMs).toISOString(),
+      extra
+    });
+    const message = await channel.send({
+      embeds: [giveaways.buildGiveawayEmbed(row)],
+      components: giveaways.giveawayButtons(row)
+    });
+    row.message_id = message.id;
+    giveaways.saveGiveaway(row);
+    return interaction.reply({
+      ephemeral: true,
+      embeds: [success('Giveaway created', '**' + prize + '** posted in ' + String(channel) + '.\nID: `' + row.id + '`\nHost: <@' + host.id + '>\nWinners: ' + winners + '\nEnds in ' + durationRaw + '.')]
+    });
   }
   if (sub === 'list') {
     const rows = giveaways.listGiveaways(interaction.guildId, 10);
@@ -213,19 +254,12 @@ async function handlePrice(interaction) {
   }
   if (sub === 'add') {
     const modal = new ModalBuilder().setCustomId('modal_price_add').setTitle('Add item price');
-    modal.addComponents(
-      input('item', 'Item name', TextInputStyle.Short, true),
-      input('order', 'Order price', TextInputStyle.Short, true),
-      input('ah', 'AH price', TextInputStyle.Short, true)
-    );
+    modal.addComponents(input('item', 'Item name', TextInputStyle.Short, true), input('order', 'Order price', TextInputStyle.Short, true), input('ah', 'AH price', TextInputStyle.Short, true));
     return interaction.showModal(modal);
   }
   if (sub === 'update') {
     const modal = new ModalBuilder().setCustomId('modal_price_update:' + interaction.options.getString('item', true)).setTitle('Update item price');
-    modal.addComponents(
-      input('order', 'New order price', TextInputStyle.Short, true),
-      input('ah', 'New AH price', TextInputStyle.Short, true)
-    );
+    modal.addComponents(input('order', 'New order price', TextInputStyle.Short, true), input('ah', 'New AH price', TextInputStyle.Short, true));
     return interaction.showModal(modal);
   }
   if (sub === 'lookup') {
@@ -353,7 +387,7 @@ async function handleBuild(interaction, client) {
     return interaction.reply({ embeds: [success('Build approved', '`' + row.id + '` is completed.')] });
   }
   await builds.requestChanges(row, interaction.user.id);
-  return interaction.reply({ embeds: [builds.warning('Changes requested', 'The builder should update `' + row.id + '`.')] });
+  return interaction.reply({ embeds: [success('Changes requested', 'The builder should update `' + row.id + '`.')] });
 }
 
 async function handleChatCommand(interaction, client) {
