@@ -30,13 +30,22 @@ function input(id, label, style, required, extra) {
 }
 
 async function handleHelp(interaction) {
-  const access = getAccess(interaction.member, interaction.guildId);
+  const access = getAccess(interaction.member, interaction.guildId, interaction.user);
   const lines = ['**Everyone**', '`/help` `/price lookup` `/price list` `/price history`'];
   if (access.customer || access.staff) lines.push('', '**Customers**', '`/build approve` `/build changes` `/build view`');
   if (access.builder || access.staff) lines.push('', '**Builders**', '`/builder balance` `/build complete` `/build list`');
   if (access.staff) lines.push('', '**Staff**', '`/giveaway *` `/payment *` `/price add|update|remove`');
   if (access.admin) lines.push('', '**Admins**', '`/config` `/partner *` `/dailygiveaway *`');
-  if (access.owner) lines.push('', '**Owner**', 'Set Admin: `/config set` key Admin role', 'Then Staff: `/config set` key Staff role', 'Optional extra owner: `/config set` key Extra owner');
+  if (access.dev) {
+    lines.push(
+      '',
+      '**Dev / Server owner only**',
+      '`/dev admin` set the Admin role',
+      '`/dev staff` set the Staff role',
+      '`/dev member` `/dev builder` `/dev customer`',
+      '`/dev addowner` `/dev removeowner` `/dev view`'
+    );
+  }
   return interaction.reply({ ephemeral: true, embeds: [base('Donut Nation 2 Commands', THEME.pink).setDescription(lines.join('\n'))] });
 }
 
@@ -62,38 +71,26 @@ async function handleConfig(interaction) {
         new StringSelectMenuOptionBuilder().setLabel('Partnership setup').setValue('partner'),
         new StringSelectMenuOptionBuilder().setLabel('Daily giveaway setup').setValue('daily'),
         new StringSelectMenuOptionBuilder().setLabel('Log channels').setValue('logs'),
-        new StringSelectMenuOptionBuilder().setLabel('Roles').setValue('roles')
+        new StringSelectMenuOptionBuilder().setLabel('Roles (Dev only)').setValue('roles')
       )
     );
     return interaction.reply({ ephemeral: true, embeds: [embed], components: [menu] });
   }
   const key = interaction.options.getString('key', true);
+  if (['admin_role_add', 'owner_user_add', 'staff_role_add', 'builder_role_id', 'customer_role_id', 'partnership_role_id'].includes(key)) {
+    return deny(interaction, 'Role changes are Dev / server-owner only. Use /dev instead.');
+  }
   const channel = interaction.options.getChannel('channel');
-  const role = interaction.options.getRole('role');
-  const user = interaction.options.getUser('user');
   const number = interaction.options.getNumber('number');
   const patch = {};
-  if ((key === 'admin_role_add' || key === 'owner_user_add') && !gate.access.owner) {
-    return deny(interaction, 'Only the server owner can add admins or extra owners.');
-  }
   if (key.endsWith('_channel_id')) {
     if (!channel) return deny(interaction, 'Pick a channel.');
     patch[key] = channel.id;
-  } else if (key === 'partnership_role_id' || key === 'builder_role_id' || key === 'customer_role_id') {
-    if (!role) return deny(interaction, 'Pick a role.');
-    patch[key] = role.id;
-  } else if (key === 'staff_role_add') {
-    if (!role) return deny(interaction, 'Pick a role.');
-    patch.staff_role_ids = Array.from(new Set([].concat(cfg.staff_role_ids || [], [role.id])));
-  } else if (key === 'admin_role_add') {
-    if (!role) return deny(interaction, 'Pick a role.');
-    patch.admin_role_ids = Array.from(new Set([].concat(cfg.admin_role_ids || [], [role.id])));
-  } else if (key === 'owner_user_add') {
-    if (!user) return deny(interaction, 'Pick a user.');
-    patch.owner_user_ids = Array.from(new Set([].concat(cfg.owner_user_ids || [], [user.id])));
   } else if (key === 'tax_percent') {
     if (number === null || number < 0 || number > 100) return deny(interaction, 'Tax must be 0-100.');
     patch.tax_percent = number;
+  } else {
+    return deny(interaction, 'Unknown setting.');
   }
   updateConfig(interaction.guildId, patch);
   logEvent({ guildId: interaction.guildId, category: 'config', message: 'Config updated: ' + key, actorId: interaction.user.id });
@@ -322,7 +319,7 @@ async function handlePayment(interaction, client) {
 
 async function handleBuilder(interaction) {
   const target = interaction.options.getUser('user') || interaction.user;
-  const access = getAccess(interaction.member, interaction.guildId);
+  const access = getAccess(interaction.member, interaction.guildId, interaction.user);
   if (target.id !== interaction.user.id && !access.staff) return deny(interaction, 'Only staff can view another builder.');
   if (target.id === interaction.user.id && !access.builder && !access.staff) return deny(interaction, 'This command is for builders and staff.');
   const stats = payments.builderStats(interaction.guildId, target.id);

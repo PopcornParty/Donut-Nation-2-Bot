@@ -2,10 +2,11 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits, Partials, Events, ActivityType } = require('discord.js');
 const logger = require('./utils/logger');
-const { initDatabase, logEvent } = require('./db');
+const { initDatabase } = require('./db');
 const { deployCommands } = require('./deploy-commands');
 const { handleChatCommand } = require('./handlers/commands');
 const { handleButton, handleModal, handleSelect } = require('./handlers/components');
+const { handleRoleConfig } = require('./handlers/role-config');
 logger.info('Loaded command and component handlers');
 const { startScheduler } = require('./scheduler');
 const { startHealthServer } = require('./health');
@@ -32,9 +33,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'dev') {
-        const { handleRoleConfig } = require('./handlers/role-config');
-        const extra = await handleRoleConfig(interaction);
-        if (extra) return extra;
+        await handleRoleConfig(interaction);
+        return;
       }
       await handleChatCommand(interaction, client);
       return;
