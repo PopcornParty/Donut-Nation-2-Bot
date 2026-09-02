@@ -1,54 +1,56 @@
 const { getConfig } = require('../db');
 
-function envIdList(name) {
-  return String(process.env[name] || '').split(',').map((s) => s.trim()).filter(Boolean);
+function envIdList() {
+  const names = ['DEV_USER_IDS', 'DEV_USER_ID', 'DEV_ID', 'OWNER_ID'];
+  const values = [];
+  for (const name of names) {
+    const raw = String(process.env[name] || '').replace(/["']/g, '').replace(/\n/g, ',');
+    for (const part of raw.split(/[,\s]+/)) {
+      if (part) values.push(part.trim());
+    }
+  }
+  return values;
 }
 
 function memberRoleIds(member) {
   if (!member) return [];
-  if (member.roles?.cache) return [...member.roles.cache.keys()];
+  if (member.roles && member.roles.cache) return Array.from(member.roles.cache.keys());
   return member.roles || [];
 }
 
 function hasConfiguredRole(member, roleIds) {
-  if (!roleIds?.length) return false;
+  if (!roleIds || !roleIds.length) return false;
   const owned = new Set(memberRoleIds(member));
   return roleIds.some((id) => owned.has(id));
 }
 
 function isServerOwner(member) {
-  if (!member?.guild) return false;
-  return member.id === member.guild.ownerId;
-}
-
-function isConfiguredOwner(member, cfg) {
-  return Boolean(member && cfg.owner_user_ids?.includes(member.id));
+  return Boolean(member && member.guild && member.id === member.guild.ownerId);
 }
 
 function isDev(member, cfg) {
   if (!member) return false;
-  if (envIdList('DEV_USER_IDS').includes(member.id)) return true;
-  return Boolean(cfg?.dev_user_ids?.includes(member.id));
+  if (envIdList().includes(member.id)) return true;
+  return Boolean(cfg && cfg.dev_user_ids && cfg.dev_user_ids.includes(member.id));
 }
 
 function getAccess(member, guildId) {
   const cfg = getConfig(guildId);
   const dev = isDev(member, cfg);
-  const owner = dev || isServerOwner(member) || isConfiguredOwner(member, cfg);
+  const owner = dev || isServerOwner(member) || Boolean(member && cfg.owner_user_ids && cfg.owner_user_ids.includes(member.id));
   const admin = owner || hasConfiguredRole(member, cfg.admin_role_ids);
   const staff = admin || hasConfiguredRole(member, cfg.staff_role_ids);
   const builder = staff || (cfg.builder_role_id && memberRoleIds(member).includes(cfg.builder_role_id));
   const customer = staff || (cfg.customer_role_id && memberRoleIds(member).includes(cfg.customer_role_id));
-  const memberRole = !cfg.member_role_id || memberRoleIds(member).includes(cfg.member_role_id) || staff;
-  return { dev, owner, admin, staff, builder, customer, member: memberRole, config: cfg };
+  return { dev, owner, admin, staff, builder, customer, config: cfg };
 }
 
 function requireAccess(interaction, level) {
   const access = getAccess(interaction.member, interaction.guildId);
   if (access.dev) return { ok: true, access };
   if (level === 'dev' && !access.dev) return { ok: false, access, message: 'Only a Dev can do that.' };
-  if (level === 'owner' && !access.owner) return { ok: false, access, message: 'Only the server owner, extra owner, or Dev can do that.' };
-  if (level === 'admin' && !access.admin) return { ok: false, access, message: 'The server owner must set an Admin role first.' };
+  if (level === 'owner' && !access.owner) return { ok: false, access, message: 'Only the server owner or a Dev can do that.' };
+  if (level === 'admin' && !access.admin) return { ok: false, access, message: 'Set an Admin role first with /setup admin.' };
   if (level === 'staff' && !access.staff) return { ok: false, access, message: 'This command is limited to staff.' };
   if (level === 'builder' && !access.builder) return { ok: false, access, message: 'This command is limited to builders and staff.' };
   return { ok: true, access };

@@ -1,12 +1,6 @@
 require('dotenv').config();
 
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Events,
-  ActivityType
-} = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Events, ActivityType } = require('discord.js');
 const logger = require('./utils/logger');
 const { initDatabase, logEvent } = require('./db');
 const { deployCommands } = require('./deploy-commands');
@@ -31,13 +25,18 @@ client.once(Events.ClientReady, async (readyClient) => {
   logger.info('Logged in as ' + readyClient.user.tag);
   readyClient.user.setPresence({ activities: [{ name: 'Donut Nation 2', type: ActivityType.Watching }], status: 'online' });
   logEvent({ category: 'system', message: 'Bot started as ' + readyClient.user.tag });
+  try {
+    await deployCommands(readyClient);
+  } catch (err) {
+    logger.warn('Slash command deploy after login failed: ' + err.message);
+  }
   startScheduler(readyClient);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === 'config') {
+      if (interaction.commandName === 'config' || interaction.commandName === 'setup') {
         const { handleRoleConfig } = require('./handlers/role-config');
         const extra = await handleRoleConfig(interaction);
         if (extra) return extra;
@@ -77,7 +76,6 @@ async function main() {
   initDatabase();
   require('./db-patch');
   startHealthServer();
-  try { await deployCommands(); } catch (err) { logger.warn('Slash command deploy failed (bot will still start): ' + err.message); }
   await client.login(process.env.DISCORD_TOKEN);
 }
 
