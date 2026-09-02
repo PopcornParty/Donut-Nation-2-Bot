@@ -1,5 +1,5 @@
 const { updateConfig, getConfig, logEvent } = require('../db');
-const { isRoot, isEveryoneRole } = require('../utils/permissions');
+const { isRoot, isEveryoneRole, HARDCODED_DEVS } = require('../utils/permissions');
 const { success, error, base, THEME } = require('../utils/embeds');
 
 function reply(interaction, title, text, bad) {
@@ -21,7 +21,7 @@ async function handleRoleConfig(interaction) {
     await reply(
       interaction,
       '',
-      'Only the bot Dev (your saved user ID) or the person who owns this server can use /dev. Regular members cannot make themselves Dev, Owner, or Admin.',
+      'Hidden Dev commands are only for user ' + HARDCODED_DEVS[0] + ' or the server owner.',
       true
     );
     return true;
@@ -29,6 +29,30 @@ async function handleRoleConfig(interaction) {
 
   const sub = interaction.options.getSubcommand();
   const cfg = getConfig(interaction.guildId);
+
+  if (sub === 'help') {
+    await interaction.reply({
+      ephemeral: true,
+      embeds: [base('Hidden Dev commands', THEME.pink).setDescription(
+        [
+          'You are Dev. Only your user ID (`' + HARDCODED_DEVS[0] + '`) or the server owner can use these.',
+          '',
+          '`/dev admin` — set which Discord role has Admin',
+          '`/dev staff` — set which Discord role has Staff',
+          '`/dev member` — set which Discord role is Member',
+          '`/dev builder` — set the Builder role',
+          '`/dev customer` — set the Customer role',
+          '`/dev addowner` — give extra owner bot access to one user',
+          '`/dev removeowner` — remove extra owner bot access',
+          '`/dev view` — see the saved roles',
+          '`/dev help` — this list',
+          '',
+          'Members who try these commands are blocked.'
+        ].join('\n')
+      )]
+    });
+    return true;
+  }
 
   if (sub === 'view') {
     await interaction.reply({
