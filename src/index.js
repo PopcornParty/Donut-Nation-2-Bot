@@ -1,16 +1,14 @@
 require('dotenv').config();
-
 const { Client, GatewayIntentBits, Partials, Events, ActivityType } = require('discord.js');
 const logger = require('./utils/logger');
 const { initDatabase } = require('./db');
 const { deployCommands } = require('./deploy-commands');
 const { handleChatCommand } = require('./handlers/commands');
 const { handleButton, handleModal, handleSelect } = require('./handlers/components');
-const { handleRoleConfig } = require('./handlers/role-config');
-logger.info('Loaded command and component handlers');
 const { startScheduler } = require('./scheduler');
 const { startHealthServer } = require('./health');
 const partnership = require('./systems/partnership');
+logger.info('Loaded command and component handlers');
 
 function requiredEnv() {
   const missing = ['DISCORD_TOKEN', 'CLIENT_ID'].filter((key) => !process.env[key]);
@@ -33,9 +31,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'dev') {
-        await handleRoleConfig(interaction);
-        return;
+        const { handleRoleConfig } = require('./handlers/role-config');
+        const extra = await handleRoleConfig(interaction);
+        if (extra) return extra;
       }
+      const { handleExtra } = require('./handlers/extra-commands');
+      const extraCmd = await handleExtra(interaction, client);
+      if (extraCmd) return extraCmd;
       await handleChatCommand(interaction, client);
       return;
     }
@@ -48,9 +50,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.replied || interaction.deferred) await interaction.followUp(payload);
       else await interaction.reply(payload);
-    } catch (replyErr) {
-      logger.warn('Could not send error reply: ' + replyErr.message);
-    }
+    } catch (replyErr) { logger.warn(replyErr.message); }
   }
 });
 
@@ -67,8 +67,4 @@ async function main() {
   startHealthServer();
   await client.login(process.env.DISCORD_TOKEN);
 }
-
-main().catch((err) => {
-  logger.error('Fatal startup error:', err);
-  process.exit(1);
-});
+main().catch((err) => { logger.error('Fatal startup error:', err); process.exit(1); });
