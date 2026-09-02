@@ -15,6 +15,10 @@ function buildCommands() {
       .setDescription('Configure Donut Nation 2 bot settings')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addSubcommand((s) => s.setName('view').setDescription('View current configuration'))
+      .addSubcommand((s) => s.setName('admin').setDescription('Set the Admin role').addRoleOption((o) => o.setName('role').setDescription('Admin role').setRequired(true)))
+      .addSubcommand((s) => s.setName('staff').setDescription('Set the Staff role').addRoleOption((o) => o.setName('role').setDescription('Staff role').setRequired(true)))
+      .addSubcommand((s) => s.setName('member').setDescription('Set the Member role').addRoleOption((o) => o.setName('role').setDescription('Member role').setRequired(true)))
+      .addSubcommand((s) => s.setName('dev').setDescription('Add a Dev user (highest access)').addUserOption((o) => o.setName('user').setDescription('Dev user').setRequired(true)))
       .addSubcommand((s) =>
         s.setName('set').setDescription('Update a configuration value')
           .addStringOption((o) =>
@@ -55,7 +59,6 @@ function buildCommands() {
     new SlashCommandBuilder()
       .setName('giveaway')
       .setDescription('Create and manage giveaways')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addSubcommand((s) => s.setName('create').setDescription('Create a giveaway')
         .addStringOption((o) => o.setName('prize').setDescription('What people can win').setRequired(true).setMaxLength(100))
         .addStringOption((o) => o.setName('duration').setDescription('How long until it ends, like 10m, 2h, or 1d').setRequired(true))
