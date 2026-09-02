@@ -1,118 +1,49 @@
 const { getConfig } = require('../db');
-
-// Only this Discord user ID is always treated as bot Dev.
-// Right-click your name in Discord -> Copy User ID.
 const HARDCODED_DEVS = ['1438172505423478916'];
-
 function envIdList() {
   const names = ['DEV_USER_IDS', 'DEV_USER_ID', 'DEV_ID', 'OWNER_ID'];
   const values = [];
   for (const name of names) {
     const raw = String(process.env[name] || '').replace(/["']/g, '').replace(/\n/g, ',');
-    for (const part of raw.split(/[,\s]+/)) {
-      if (part) values.push(part.trim());
-    }
+    for (const part of raw.split(/[,\s]+/)) if (part) values.push(part.trim());
   }
-  return values;
+  return values.concat(HARDCODED_DEVS);
 }
-
-function userIdOf(memberOrUser) {
-  if (!memberOrUser) return '';
-  return String(memberOrUser.id || (memberOrUser.user && memberOrUser.user.id) || '');
-}
-
 function memberRoleIds(member) {
   if (!member) return [];
   if (member.roles && member.roles.cache) return Array.from(member.roles.cache.keys());
   return member.roles || [];
 }
-
-function usableRoleIds(roleIds, guildId) {
-  return (roleIds || [])
-    .map(String)
-    .filter((id) => id && id !== String(guildId));
-}
-
-function hasConfiguredRole(member, roleIds, guildId) {
-  const usable = usableRoleIds(roleIds, guildId || (member && member.guild && member.guild.id));
-  if (!usable.length) return false;
+function hasConfiguredRole(member, roleIds) {
+  if (!roleIds || !roleIds.length) return false;
   const owned = new Set(memberRoleIds(member));
-  return usable.some((id) => owned.has(id));
+  return roleIds.some((id) => owned.has(id));
 }
-
-function isHardcodedDev(id) {
-  const value = String(id || '');
-  if (!value) return false;
-  if (HARDCODED_DEVS.includes(value)) return true;
-  return envIdList().includes(value);
+function isServerOwner(member) { return Boolean(member && member.guild && member.id === member.guild.ownerId); }
+function isDev(member, cfg) {
+  if (!member) return false;
+  if (HARDCODED_DEVS.includes(String(member.id))) return true;
+  if (envIdList().includes(String(member.id))) return true;
+  return Boolean(cfg && cfg.dev_user_ids && cfg.dev_user_ids.includes(member.id));
 }
-
-function isServerOwner(member) {
-  return Boolean(member && member.guild && String(member.id) === String(member.guild.ownerId));
-}
-
-// Root = your Discord ID (or DEV_USER_IDS) OR the person who owns the Discord server.
-// Nobody else can become Dev through a command.
-function isRoot(member, user) {
-  const id = userIdOf(member) || userIdOf(user);
-  if (isHardcodedDev(id)) return true;
-  return isServerOwner(member);
-}
-
-function isDev(member, cfg, user) {
-  return isRoot(member, user);
-}
-
-function getAccess(member, guildId, user) {
+function getAccess(member, guildId) {
   const cfg = getConfig(guildId);
-  const root = isRoot(member, user);
-  const extraOwner = Boolean(
-    member && cfg && Array.isArray(cfg.owner_user_ids) && cfg.owner_user_ids.map(String).includes(String(member.id))
-  );
-  const owner = root || extraOwner;
-  const admin = owner || hasConfiguredRole(member, cfg.admin_role_ids, guildId);
-  const staff = admin || hasConfiguredRole(member, cfg.staff_role_ids, guildId);
-  const builder = staff || (cfg.builder_role_id && cfg.builder_role_id !== String(guildId) && memberRoleIds(member).includes(cfg.builder_role_id));
-  const customer = staff || (cfg.customer_role_id && cfg.customer_role_id !== String(guildId) && memberRoleIds(member).includes(cfg.customer_role_id));
-  return { dev: root, owner, admin, staff, builder, customer, root, config: cfg };
+  const dev = isDev(member, cfg);
+  const owner = dev || isServerOwner(member) || Boolean(member && cfg.owner_user_ids && cfg.owner_user_ids.includes(member.id));
+  const admin = owner || hasConfiguredRole(member, cfg.admin_role_ids);
+  const staff = admin || hasConfiguredRole(member, cfg.staff_role_ids);
+  const builder = staff || (cfg.builder_role_id && memberRoleIds(member).includes(cfg.builder_role_id));
+  const customer = staff || (cfg.customer_role_id && memberRoleIds(member).includes(cfg.customer_role_id));
+  return { dev, owner, admin, staff, builder, customer, config: cfg };
 }
-
 function requireAccess(interaction, level) {
-  const access = getAccess(interaction.member, interaction.guildId, interaction.user);
-  if (isHardcodedDev(interaction.user && interaction.user.id)) return { ok: true, access };
-  if (level === 'dev' && !access.dev) {
-    return { ok: false, access, message: 'Only the bot Dev or the server owner can use this command.' };
-  }
-  if (level === 'owner' && !access.owner) {
-    return { ok: false, access, message: 'Only the server owner or the bot Dev can do that.' };
-  }
-  if (level === 'admin' && !access.admin) {
-    return { ok: false, access, message: 'Ask the Dev or server owner to set Admin with /dev admin.' };
-  }
-  if (level === 'staff' && !access.staff) {
-    return { ok: false, access, message: 'This command is limited to staff.' };
-  }
-  if (level === 'builder' && !access.builder) {
-    return { ok: false, access, message: 'This command is limited to builders and staff.' };
-  }
+  const access = getAccess(interaction.member, interaction.guildId);
+  if (access.dev || access.admin) return { ok: true, access };
+  if (level === 'dev' && !access.dev && !access.admin) return { ok: false, access, message: 'Only Dev, Admin, or Moderator can do that.' };
+  if (level === 'owner' && !access.owner) return { ok: false, access, message: 'Only the server owner or a Dev can do that.' };
+  if (level === 'admin' && !access.admin) return { ok: false, access, message: 'Ask Dev to set Admin with /dev admin.' };
+  if (level === 'staff' && !access.staff) return { ok: false, access, message: 'This command is limited to staff.' };
+  if (level === 'builder' && !access.builder) return { ok: false, access, message: 'This command is limited to builders and staff.' };
   return { ok: true, access };
 }
-
-function isEveryoneRole(role, guild) {
-  if (!role) return false;
-  if (role.id === (guild && guild.id)) return true;
-  if (role.name === '@everyone') return true;
-  return false;
-}
-
-module.exports = {
-  getAccess,
-  requireAccess,
-  isServerOwner,
-  isDev,
-  isRoot,
-  isHardcodedDev,
-  hasConfiguredRole,
-  isEveryoneRole,
-  HARDCODED_DEVS
-};
+module.exports = { getAccess, requireAccess, isServerOwner, isDev, hasConfiguredRole, HARDCODED_DEVS };
