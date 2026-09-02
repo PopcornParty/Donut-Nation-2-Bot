@@ -1,4 +1,3 @@
-const { PermissionFlagsBits } = require('discord.js');
 const { getConfig } = require('../db');
 
 function memberRoleIds(member) {
@@ -7,32 +6,38 @@ function memberRoleIds(member) {
   return member.roles || [];
 }
 
-function isGuildAdmin(member) {
-  if (!member) return false;
-  if (member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
-  if (member.permissions?.has?.(PermissionFlagsBits.ManageGuild)) return true;
-  return false;
-}
-
 function hasConfiguredRole(member, roleIds) {
   if (!roleIds?.length) return false;
   const owned = new Set(memberRoleIds(member));
   return roleIds.some((id) => owned.has(id));
 }
 
+function isServerOwner(member) {
+  if (!member?.guild) return false;
+  return member.id === member.guild.ownerId;
+}
+
+function isConfiguredOwner(member, cfg) {
+  return Boolean(member && cfg.owner_user_ids?.includes(member.id));
+}
+
 function getAccess(member, guildId) {
   const cfg = getConfig(guildId);
-  const admin = isGuildAdmin(member) || hasConfiguredRole(member, cfg.admin_role_ids);
+  const owner = isServerOwner(member) || isConfiguredOwner(member, cfg);
+  const admin = owner || hasConfiguredRole(member, cfg.admin_role_ids);
   const staff = admin || hasConfiguredRole(member, cfg.staff_role_ids);
-  const builder = admin || staff || (cfg.builder_role_id && memberRoleIds(member).includes(cfg.builder_role_id));
-  const customer = admin || staff || (cfg.customer_role_id && memberRoleIds(member).includes(cfg.customer_role_id));
-  return { admin, staff, builder, customer, config: cfg };
+  const builder = staff || (cfg.builder_role_id && memberRoleIds(member).includes(cfg.builder_role_id));
+  const customer = staff || (cfg.customer_role_id && memberRoleIds(member).includes(cfg.customer_role_id));
+  return { owner, admin, staff, builder, customer, config: cfg };
 }
 
 function requireAccess(interaction, level) {
   const access = getAccess(interaction.member, interaction.guildId);
+  if (level === 'owner' && !access.owner) {
+    return { ok: false, access, message: 'Only the server owner or an extra owner can do that.' };
+  }
   if (level === 'admin' && !access.admin) {
-    return { ok: false, access, message: 'This command is limited to administrators.' };
+    return { ok: false, access, message: 'The server owner must set an Admin role before you can use this.' };
   }
   if (level === 'staff' && !access.staff) {
     return { ok: false, access, message: 'This command is limited to staff.' };
@@ -46,6 +51,6 @@ function requireAccess(interaction, level) {
 module.exports = {
   getAccess,
   requireAccess,
-  isGuildAdmin,
+  isServerOwner,
   hasConfiguredRole
 };

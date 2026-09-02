@@ -1,6 +1,6 @@
 {
   "name": "donut-nation-2-bot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production Discord bot for the Donut Nation 2 Minecraft / Donut SMP community",
   "main": "src/index.js",
   "scripts": {

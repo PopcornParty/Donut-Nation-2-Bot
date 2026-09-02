@@ -12,6 +12,7 @@ const { initDatabase, logEvent } = require('./db');
 const { deployCommands } = require('./deploy-commands');
 const { handleChatCommand } = require('./handlers/commands');
 const { handleButton, handleModal, handleSelect } = require('./handlers/components');
+logger.info('Loaded command and component handlers');
 const { startScheduler } = require('./scheduler');
 const { startHealthServer } = require('./health');
 const partnership = require('./systems/partnership');
