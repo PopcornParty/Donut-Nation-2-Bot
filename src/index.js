@@ -23,21 +23,13 @@ function requiredEnv() {
 }
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildMessages
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildPresences, GatewayIntentBits.GuildMessages],
   partials: [Partials.Channel]
 });
 
 client.once(Events.ClientReady, async (readyClient) => {
   logger.info('Logged in as ' + readyClient.user.tag);
-  readyClient.user.setPresence({
-    activities: [{ name: 'Donut Nation 2', type: ActivityType.Watching }],
-    status: 'online'
-  });
+  readyClient.user.setPresence({ activities: [{ name: 'Donut Nation 2', type: ActivityType.Watching }], status: 'online' });
   logEvent({ category: 'system', message: 'Bot started as ' + readyClient.user.tag });
   startScheduler(readyClient);
 });
@@ -45,6 +37,11 @@ client.once(Events.ClientReady, async (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === 'config') {
+        const { handleRoleConfig } = require('./handlers/role-config');
+        const extra = await handleRoleConfig(interaction);
+        if (extra) return extra;
+      }
       await handleChatCommand(interaction, client);
       return;
     }
@@ -59,10 +56,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isStringSelectMenu()) await handleSelect(interaction, client);
   } catch (err) {
     logger.error('Interaction failed:', err);
-    const payload = {
-      ephemeral: true,
-      embeds: [{ color: 0xed4245, title: 'Something went wrong', description: 'The bot hit an error handling that action.', timestamp: new Date().toISOString(), footer: { text: 'Donut Nation 2' } }]
-    };
+    const payload = { ephemeral: true, embeds: [{ color: 0xed4245, title: 'Something went wrong', description: 'The bot hit an error handling that action.', footer: { text: 'Donut Nation 2' } }] };
     try {
       if (interaction.replied || interaction.deferred) await interaction.followUp(payload);
       else await interaction.reply(payload);
@@ -75,7 +69,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.on(Events.GuildMemberAdd, (member) => {
   partnership.checkPartnership(client, member.guild).catch((err) => logger.warn('Partnership check after join failed: ' + err.message));
 });
-
 client.on('error', (err) => logger.error('Client error:', err));
 process.on('unhandledRejection', (err) => logger.error('Unhandled rejection:', err));
 
@@ -84,11 +77,7 @@ async function main() {
   initDatabase();
   require('./db-patch');
   startHealthServer();
-  try {
-    await deployCommands();
-  } catch (err) {
-    logger.warn('Slash command deploy failed (bot will still start): ' + err.message);
-  }
+  try { await deployCommands(); } catch (err) { logger.warn('Slash command deploy failed (bot will still start): ' + err.message); }
   await client.login(process.env.DISCORD_TOKEN);
 }
 
