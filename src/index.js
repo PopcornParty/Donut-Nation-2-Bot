@@ -19,9 +19,7 @@ const partnership = require('./systems/partnership');
 
 function requiredEnv() {
   const missing = ['DISCORD_TOKEN', 'CLIENT_ID'].filter((key) => !process.env[key]);
-  if (missing.length) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-  }
+  if (missing.length) throw new Error('Missing required environment variables: ' + missing.join(', '));
 }
 
 const client = new Client({
@@ -35,12 +33,12 @@ const client = new Client({
 });
 
 client.once(Events.ClientReady, async (readyClient) => {
-  logger.info(`Logged in as ${readyClient.user.tag}`);
+  logger.info('Logged in as ' + readyClient.user.tag);
   readyClient.user.setPresence({
     activities: [{ name: 'Donut Nation 2', type: ActivityType.Watching }],
     status: 'online'
   });
-  logEvent({ category: 'system', message: `Bot started as ${readyClient.user.tag}` });
+  logEvent({ category: 'system', message: 'Bot started as ' + readyClient.user.tag });
   startScheduler(readyClient);
 });
 
@@ -58,65 +56,38 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleModal(interaction, client);
       return;
     }
-    if (interaction.isStringSelectMenu()) {
-      await handleSelect(interaction, client);
-    }
+    if (interaction.isStringSelectMenu()) await handleSelect(interaction, client);
   } catch (err) {
     logger.error('Interaction failed:', err);
-    logEvent({
-      guildId: interaction.guildId || null,
-      category: 'error',
-      message: `Interaction failed: ${err.message}`,
-      actorId: interaction.user?.id
-    });
     const payload = {
       ephemeral: true,
-      embeds: [
-        {
-          color: 0xed4245,
-          title: 'Something went wrong',
-          description: 'The bot hit an error handling that action. Staff have a log entry.',
-          timestamp: new Date().toISOString(),
-          footer: { text: 'Donut Nation 2' }
-        }
-      ]
+      embeds: [{ color: 0xed4245, title: 'Something went wrong', description: 'The bot hit an error handling that action.', timestamp: new Date().toISOString(), footer: { text: 'Donut Nation 2' } }]
     };
     try {
       if (interaction.replied || interaction.deferred) await interaction.followUp(payload);
       else await interaction.reply(payload);
     } catch (replyErr) {
-      logger.warn(`Could not send error reply: ${replyErr.message}`);
+      logger.warn('Could not send error reply: ' + replyErr.message);
     }
   }
 });
 
 client.on(Events.GuildMemberAdd, (member) => {
-  partnership.checkPartnership(client, member.guild).catch((err) => {
-    logger.warn(`Partnership check after join failed: ${err.message}`);
-  });
+  partnership.checkPartnership(client, member.guild).catch((err) => logger.warn('Partnership check after join failed: ' + err.message));
 });
 
 client.on('error', (err) => logger.error('Client error:', err));
 process.on('unhandledRejection', (err) => logger.error('Unhandled rejection:', err));
-process.on('SIGINT', () => {
-  logEvent({ category: 'system', message: 'Bot shutting down (SIGINT)' });
-  client.destroy();
-  process.exit(0);
-});
-process.on('SIGTERM', () => {
-  logEvent({ category: 'system', message: 'Bot shutting down (SIGTERM)' });
-  client.destroy();
-  process.exit(0);
-});
 
 async function main() {
   requiredEnv();
   initDatabase();
+  require('./db-patch');
   startHealthServer();
   try {
     await deployCommands();
   } catch (err) {
-    logger.warn(`Slash command deploy failed (bot will still start): ${err.message}`);
+    logger.warn('Slash command deploy failed (bot will still start): ' + err.message);
   }
   await client.login(process.env.DISCORD_TOKEN);
 }
