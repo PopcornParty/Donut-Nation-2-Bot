@@ -11,37 +11,28 @@ function buildCommands() {
   return [
     new SlashCommandBuilder().setName('help').setDescription('Show commands you can use'),
     new SlashCommandBuilder()
-      .setName('setup')
-      .setDescription('Set Admin, Staff, Member, or Dev')
-      .addSubcommand((s) => s.setName('admin').setDescription('Set the Admin role').addRoleOption((o) => o.setName('role').setDescription('Admin role').setRequired(true)))
+      .setName('dev')
+      .setDescription('Dev-only role controls')
+      .setDefaultMemberPermissions('0')
       .addSubcommand((s) => s.setName('staff').setDescription('Set the Staff role').addRoleOption((o) => o.setName('role').setDescription('Staff role').setRequired(true)))
       .addSubcommand((s) => s.setName('member').setDescription('Set the Member role').addRoleOption((o) => o.setName('role').setDescription('Member role').setRequired(true)))
-      .addSubcommand((s) => s.setName('dev').setDescription('Add a Dev user').addUserOption((o) => o.setName('user').setDescription('Dev user').setRequired(true))),
+      .addSubcommand((s) => s.setName('admin').setDescription('Set the Admin role').addRoleOption((o) => o.setName('role').setDescription('Admin role').setRequired(true)))
+      .addSubcommand((s) => s.setName('view').setDescription('View saved roles')),
     new SlashCommandBuilder()
       .setName('config')
-      .setDescription('Configure Donut Nation 2 bot settings')
+      .setDescription('Configure channels and bot settings')
       .addSubcommand((s) => s.setName('view').setDescription('View current configuration'))
-      .addSubcommand((s) => s.setName('admin').setDescription('Set the Admin role').addRoleOption((o) => o.setName('role').setDescription('Admin role').setRequired(true)))
-      .addSubcommand((s) => s.setName('staff').setDescription('Set the Staff role').addRoleOption((o) => o.setName('role').setDescription('Staff role').setRequired(true)))
-      .addSubcommand((s) => s.setName('member').setDescription('Set the Member role').addRoleOption((o) => o.setName('role').setDescription('Member role').setRequired(true)))
-      .addSubcommand((s) => s.setName('dev').setDescription('Add a Dev user').addUserOption((o) => o.setName('user').setDescription('Dev user').setRequired(true)))
-      .addSubcommand((s) =>
-        s.setName('set').setDescription('Update a configuration value')
-          .addStringOption((o) =>
-            o.setName('key').setDescription('Setting to change').setRequired(true).addChoices(
-              { name: 'Giveaway channel', value: 'giveaway_channel_id' },
-              { name: 'Payment log channel', value: 'payment_log_channel_id' },
-              { name: 'Build completion log channel', value: 'build_log_channel_id' },
-              { name: 'Daily giveaway channel', value: 'daily_giveaway_channel_id' },
-              { name: 'Partnership channel', value: 'partnership_channel_id' },
-              { name: 'Tax percent', value: 'tax_percent' }
-            )
-          )
-          .addChannelOption((o) => o.setName('channel').setDescription('Channel value').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
-          .addRoleOption((o) => o.setName('role').setDescription('Role value'))
-          .addUserOption((o) => o.setName('user').setDescription('User value'))
-          .addNumberOption((o) => o.setName('number').setDescription('Numeric value').setMinValue(0).setMaxValue(100))
-      ),
+      .addSubcommand((s) => s.setName('set').setDescription('Update a channel or tax setting')
+        .addStringOption((o) => o.setName('key').setDescription('Setting to change').setRequired(true).addChoices(
+          { name: 'Giveaway channel', value: 'giveaway_channel_id' },
+          { name: 'Payment log channel', value: 'payment_log_channel_id' },
+          { name: 'Build completion log channel', value: 'build_log_channel_id' },
+          { name: 'Daily giveaway channel', value: 'daily_giveaway_channel_id' },
+          { name: 'Partnership channel', value: 'partnership_channel_id' },
+          { name: 'Tax percent', value: 'tax_percent' }
+        ))
+        .addChannelOption((o) => o.setName('channel').setDescription('Channel value').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addNumberOption((o) => o.setName('number').setDescription('Numeric value').setMinValue(0).setMaxValue(100))),
     new SlashCommandBuilder()
       .setName('partner')
       .setDescription('Automatic partnership system')
@@ -75,11 +66,7 @@ function buildCommands() {
       .addSubcommand((s) => s.setName('setup').setDescription('Configure the daily giveaway')
         .addChannelOption((o) => o.setName('channel').setDescription('Channel').setRequired(true).addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
         .addStringOption((o) => o.setName('time').setDescription('Time HH:MM').setRequired(true))
-        .addStringOption((o) => o.setName('prize').setDescription('Prize').setRequired(true))
-        .addIntegerOption((o) => o.setName('winners').setDescription('Winner count').setMinValue(1).setMaxValue(10))
-        .addStringOption((o) => o.setName('mode').setDescription('Mode').addChoices(...GIVEAWAY_MODES))
-        .addStringOption((o) => o.setName('host').setDescription('Host display name'))
-        .addStringOption((o) => o.setName('duration').setDescription('How long it runs, e.g. 12h')))
+        .addStringOption((o) => o.setName('prize').setDescription('Prize').setRequired(true)))
       .addSubcommand((s) => s.setName('enable').setDescription('Enable the daily giveaway'))
       .addSubcommand((s) => s.setName('disable').setDescription('Disable the daily giveaway'))
       .addSubcommand((s) => s.setName('status').setDescription('Show daily giveaway settings')),
@@ -88,9 +75,6 @@ function buildCommands() {
       .setDescription('Donut SMP item price tracker')
       .addSubcommand((s) => s.setName('lookup').setDescription('Look up an item price').addStringOption((o) => o.setName('item').setDescription('Item name').setRequired(true)))
       .addSubcommand((s) => s.setName('add').setDescription('Add a tracked item'))
-      .addSubcommand((s) => s.setName('update').setDescription('Update an item').addStringOption((o) => o.setName('item').setDescription('Item name').setRequired(true)))
-      .addSubcommand((s) => s.setName('remove').setDescription('Remove a tracked item').addStringOption((o) => o.setName('item').setDescription('Item name').setRequired(true)))
-      .addSubcommand((s) => s.setName('history').setDescription('Show price history').addStringOption((o) => o.setName('item').setDescription('Item name').setRequired(true)))
       .addSubcommand((s) => s.setName('list').setDescription('List tracked items')),
     new SlashCommandBuilder()
       .setName('payment')
@@ -99,15 +83,12 @@ function buildCommands() {
         .addUserOption((o) => o.setName('builder').setDescription('Builder').setRequired(true))
         .addUserOption((o) => o.setName('customer').setDescription('Customer').setRequired(true)))
       .addSubcommand((s) => s.setName('view').setDescription('View a payment').addStringOption((o) => o.setName('id').setDescription('Payment ID').setRequired(true)))
-      .addSubcommand((s) => s.setName('approve').setDescription('Approve a payment').addStringOption((o) => o.setName('id').setDescription('Payment ID').setRequired(true)))
-      .addSubcommand((s) => s.setName('paid').setDescription('Mark a payment as paid out').addStringOption((o) => o.setName('id').setDescription('Payment ID').setRequired(true)))
-      .addSubcommand((s) => s.setName('cancel').setDescription('Cancel a payment').addStringOption((o) => o.setName('id').setDescription('Payment ID').setRequired(true)))
-      .addSubcommand((s) => s.setName('history').setDescription('Recent payments').addUserOption((o) => o.setName('builder').setDescription('Filter by builder'))),
+      .addSubcommand((s) => s.setName('history').setDescription('Recent payments')),
     new SlashCommandBuilder()
       .setName('builder')
       .setDescription('Builder payout tracking')
-      .addSubcommand((s) => s.setName('balance').setDescription('View builder balance').addUserOption((o) => o.setName('user').setDescription('Builder')))
-      .addSubcommand((s) => s.setName('stats').setDescription('View builder stats').addUserOption((o) => o.setName('user').setDescription('Builder'))),
+      .addSubcommand((s) => s.setName('balance').setDescription('View builder balance'))
+      .addSubcommand((s) => s.setName('stats').setDescription('View builder stats')),
     new SlashCommandBuilder()
       .setName('build')
       .setDescription('Build completion and approval')
@@ -116,12 +97,8 @@ function buildCommands() {
         .addUserOption((o) => o.setName('customer').setDescription('Customer').setRequired(true))
         .addStringOption((o) => o.setName('builder_ign').setDescription('Builder IGN').setRequired(true))
         .addStringOption((o) => o.setName('customer_ign').setDescription('Customer IGN').setRequired(true))
-        .addStringOption((o) => o.setName('description').setDescription('What was built').setRequired(true))
-        .addStringOption((o) => o.setName('payment_id').setDescription('Linked payment ID'))
-        .addStringOption((o) => o.setName('proof').setDescription('Image URL or proof link')))
-      .addSubcommand((s) => s.setName('view').setDescription('View a build').addStringOption((o) => o.setName('id').setDescription('Build ID').setRequired(true)))
+        .addStringOption((o) => o.setName('description').setDescription('What was built').setRequired(true)))
       .addSubcommand((s) => s.setName('approve').setDescription('Approve a build').addStringOption((o) => o.setName('id').setDescription('Build ID').setRequired(true)))
-      .addSubcommand((s) => s.setName('changes').setDescription('Request changes').addStringOption((o) => o.setName('id').setDescription('Build ID').setRequired(true)))
       .addSubcommand((s) => s.setName('list').setDescription('List recent builds'))
   ].map((c) => c.toJSON());
 }

@@ -24,19 +24,14 @@ const client = new Client({
 client.once(Events.ClientReady, async (readyClient) => {
   logger.info('Logged in as ' + readyClient.user.tag);
   readyClient.user.setPresence({ activities: [{ name: 'Donut Nation 2', type: ActivityType.Watching }], status: 'online' });
-  logEvent({ category: 'system', message: 'Bot started as ' + readyClient.user.tag });
-  try {
-    await deployCommands(readyClient);
-  } catch (err) {
-    logger.warn('Slash command deploy after login failed: ' + err.message);
-  }
+  try { await deployCommands(readyClient); } catch (err) { logger.warn('Slash command deploy after login failed: ' + err.message); }
   startScheduler(readyClient);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === 'config' || interaction.commandName === 'setup') {
+      if (interaction.commandName === 'dev') {
         const { handleRoleConfig } = require('./handlers/role-config');
         const extra = await handleRoleConfig(interaction);
         if (extra) return extra;
@@ -44,14 +39,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleChatCommand(interaction, client);
       return;
     }
-    if (interaction.isButton()) {
-      await handleButton(interaction, client);
-      return;
-    }
-    if (interaction.isModalSubmit()) {
-      await handleModal(interaction, client);
-      return;
-    }
+    if (interaction.isButton()) { await handleButton(interaction, client); return; }
+    if (interaction.isModalSubmit()) { await handleModal(interaction, client); return; }
     if (interaction.isStringSelectMenu()) await handleSelect(interaction, client);
   } catch (err) {
     logger.error('Interaction failed:', err);
@@ -66,7 +55,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.on(Events.GuildMemberAdd, (member) => {
-  partnership.checkPartnership(client, member.guild).catch((err) => logger.warn('Partnership check after join failed: ' + err.message));
+  partnership.checkPartnership(client, member.guild).catch((err) => logger.warn(err.message));
 });
 client.on('error', (err) => logger.error('Client error:', err));
 process.on('unhandledRejection', (err) => logger.error('Unhandled rejection:', err));

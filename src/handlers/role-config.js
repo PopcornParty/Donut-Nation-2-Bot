@@ -1,6 +1,6 @@
 const { updateConfig, getConfig } = require('../db');
-const { getAccess, isServerOwner } = require('../utils/permissions');
-const { success, error } = require('../utils/embeds');
+const { HARDCODED_DEVS } = require('../utils/permissions');
+const { success, error, base, THEME } = require('../utils/embeds');
 
 function reply(interaction, title, text, bad) {
   return interaction.reply({
@@ -10,33 +10,35 @@ function reply(interaction, title, text, bad) {
 }
 
 async function handleRoleConfig(interaction) {
-  const sub = interaction.options.getSubcommand();
-  if (['admin', 'staff', 'member', 'dev'].indexOf(sub) === -1) return null;
-
-  const access = getAccess(interaction.member, interaction.guildId);
-  const canSetRoles = access.dev || isServerOwner(interaction.member);
-  if (!canSetRoles) {
-    return reply(interaction, '', 'Only the server owner or Dev can set Admin, Staff, Member, or Dev.', true);
+  if (interaction.commandName !== 'dev') return null;
+  if (!HARDCODED_DEVS.includes(String(interaction.user.id))) {
+    return reply(interaction, '', 'This command is only for the bot Dev.', true);
   }
-
+  const sub = interaction.options.getSubcommand();
   const cfg = getConfig(interaction.guildId);
-
+  if (sub === 'view') {
+    return interaction.reply({
+      ephemeral: true,
+      embeds: [base('Dev role settings', THEME.pink).addFields(
+        { name: 'Admin', value: (cfg.admin_role_ids || []).length ? cfg.admin_role_ids.map((id) => '<@&' + id + '>').join(' ') : 'Not set', inline: true },
+        { name: 'Staff', value: (cfg.staff_role_ids || []).length ? cfg.staff_role_ids.map((id) => '<@&' + id + '>').join(' ') : 'Not set', inline: true },
+        { name: 'Member', value: cfg.member_role_id ? '<@&' + cfg.member_role_id + '>' : 'Not set', inline: true }
+      )]
+    });
+  }
   if (sub === 'admin') {
     updateConfig(interaction.guildId, { admin_role_ids: [interaction.options.getRole('role', true).id] });
-    return reply(interaction, 'Admin role set', 'That role can now use admin commands.');
+    return reply(interaction, 'Admin role set', 'Saved.');
   }
   if (sub === 'staff') {
     updateConfig(interaction.guildId, { staff_role_ids: [interaction.options.getRole('role', true).id] });
-    return reply(interaction, 'Staff role set', 'That role can now use staff commands like /giveaway.');
+    return reply(interaction, 'Staff role set', 'Saved.');
   }
   if (sub === 'member') {
     updateConfig(interaction.guildId, { member_role_id: interaction.options.getRole('role', true).id });
-    return reply(interaction, 'Member role set', 'Saved the Member role.');
+    return reply(interaction, 'Member role set', 'Saved.');
   }
-
-  const user = interaction.options.getUser('user', true);
-  updateConfig(interaction.guildId, { dev_user_ids: Array.from(new Set([].concat(cfg.dev_user_ids || [], [user.id]))) });
-  return reply(interaction, 'Dev added', '<@' + user.id + '> now has Dev access, above admin and owner.');
+  return null;
 }
 
 module.exports = { handleRoleConfig };

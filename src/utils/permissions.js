@@ -50,10 +50,11 @@ function getAccess(member, guildId) {
 
 function requireAccess(interaction, level) {
   const access = getAccess(interaction.member, interaction.guildId);
+  if (HARDCODED_DEVS.includes(String(interaction.user && interaction.user.id))) return { ok: true, access };
   if (access.dev) return { ok: true, access };
   if (level === 'dev' && !access.dev) return { ok: false, access, message: 'Only a Dev can do that.' };
   if (level === 'owner' && !access.owner) return { ok: false, access, message: 'Only the server owner or a Dev can do that.' };
-  if (level === 'admin' && !access.admin) return { ok: false, access, message: 'Set an Admin role first with /setup admin.' };
+  if (level === 'admin' && !access.admin) return { ok: false, access, message: 'Ask Dev to set Admin with /dev admin.' };
   if (level === 'staff' && !access.staff) return { ok: false, access, message: 'This command is limited to staff.' };
   if (level === 'builder' && !access.builder) return { ok: false, access, message: 'This command is limited to builders and staff.' };
   return { ok: true, access };
