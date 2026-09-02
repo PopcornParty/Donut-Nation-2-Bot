@@ -1,11 +1,12 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getAccess } = require('../utils/permissions');
-const { success, error, base, THEME } = require('../utils/embeds');
-const { parseMoney, sanitizeText, formatMoney } = require('../utils/parse');
+const { error, base, THEME } = require('../utils/embeds');
+const { parseMoney, sanitizeText } = require('../utils/parse');
 const payments = require('../systems/payments');
 const builds = require('../systems/builds');
 const giveaways = require('../systems/giveaways');
 const prices = require('../systems/prices');
+const { paymentButtons } = require('../systems/pay-buttons');
 
 function deny(interaction, message) {
   return interaction.reply({ ephemeral: true, embeds: [error('Not allowed', message)] });
@@ -66,7 +67,7 @@ async function handleExtra(interaction, client) {
     return interaction.reply({
       content: String(customer) + ' a build was created.',
       embeds: [builds.buildEmbed(build, payment), payments.paymentEmbed(payment, 'Auto payment created')],
-      components: [].concat(builds.reviewButtons(build.id), payments.paymentButtons(payment))
+      components: [].concat(builds.reviewButtons(build.id), paymentButtons(payment))
     });
   }
 
@@ -86,7 +87,7 @@ async function handleExtra(interaction, client) {
       { name: 'Winner', value: winners.length ? winners.map((w) => '<@' + w + '>').join(', ') : 'None', inline: true },
       { name: 'When', value: row.ended_at ? timeAgo(row.ended_at) : 'Still active', inline: true }
     ).setDescription('Winner gives this ID in their ticket. Host owes the prize.');
-    const components = (!paid && access.staff) ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('gw_paid:' + row.id).setLabel('Mark Giveaway Paid').setStyle(ButtonStyle.Success))] : [];
+    const components = (!paid && (access.staff || access.dev)) ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('gw_paid:' + row.id).setLabel('Mark Giveaway Paid').setStyle(ButtonStyle.Success))] : [];
     return interaction.reply({ embeds: [embed], components });
   }
   return null;
