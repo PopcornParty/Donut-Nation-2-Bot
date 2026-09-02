@@ -1,5 +1,5 @@
-const { updateConfig, getConfig } = require('../db');
-const { HARDCODED_DEVS } = require('../utils/permissions');
+const { updateConfig, getConfig, logEvent } = require('../db');
+const { isRoot, isEveryoneRole } = require('../utils/permissions');
 const { success, error, base, THEME } = require('../utils/embeds');
 
 function reply(interaction, title, text, bad) {
@@ -9,36 +9,92 @@ function reply(interaction, title, text, bad) {
   });
 }
 
+function roleLine(ids) {
+  if (!ids || !ids.length) return 'Not set';
+  return ids.map((id) => '<@&' + id + '>').join(' ');
+}
+
 async function handleRoleConfig(interaction) {
-  if (interaction.commandName !== 'dev') return null;
-  if (!HARDCODED_DEVS.includes(String(interaction.user.id))) {
-    return reply(interaction, '', 'This command is only for the bot Dev.', true);
+  if (interaction.commandName !== 'dev') return false;
+
+  if (!isRoot(interaction.member, interaction.user)) {
+    await reply(
+      interaction,
+      '',
+      'Only the bot Dev (your saved user ID) or the person who owns this server can use /dev. Regular members cannot make themselves Dev, Owner, or Admin.',
+      true
+    );
+    return true;
   }
+
   const sub = interaction.options.getSubcommand();
   const cfg = getConfig(interaction.guildId);
+
   if (sub === 'view') {
-    return interaction.reply({
+    await interaction.reply({
       ephemeral: true,
       embeds: [base('Dev role settings', THEME.pink).addFields(
-        { name: 'Admin', value: (cfg.admin_role_ids || []).length ? cfg.admin_role_ids.map((id) => '<@&' + id + '>').join(' ') : 'Not set', inline: true },
-        { name: 'Staff', value: (cfg.staff_role_ids || []).length ? cfg.staff_role_ids.map((id) => '<@&' + id + '>').join(' ') : 'Not set', inline: true },
-        { name: 'Member', value: cfg.member_role_id ? '<@&' + cfg.member_role_id + '>' : 'Not set', inline: true }
+        { name: 'Admin', value: roleLine(cfg.admin_role_ids), inline: true },
+        { name: 'Staff', value: roleLine(cfg.staff_role_ids), inline: true },
+        { name: 'Member', value: cfg.member_role_id ? '<@&' + cfg.member_role_id + '>' : 'Not set', inline: true },
+        { name: 'Builder', value: cfg.builder_role_id ? '<@&' + cfg.builder_role_id + '>' : 'Not set', inline: true },
+        { name: 'Customer', value: cfg.customer_role_id ? '<@&' + cfg.customer_role_id + '>' : 'Not set', inline: true },
+        {
+          name: 'Extra owners',
+          value: (cfg.owner_user_ids || []).length ? cfg.owner_user_ids.map((id) => '<@' + id + '>').join(' ') : 'None',
+          inline: false
+        }
       )]
     });
+    return true;
   }
-  if (sub === 'admin') {
-    updateConfig(interaction.guildId, { admin_role_ids: [interaction.options.getRole('role', true).id] });
-    return reply(interaction, 'Admin role set', 'Saved.');
+
+  if (sub === 'admin' || sub === 'staff' || sub === 'member' || sub === 'builder' || sub === 'customer') {
+    const role = interaction.options.getRole('role', true);
+    if (isEveryoneRole(role, interaction.guild)) {
+      await reply(interaction, '', 'You cannot use @everyone as a staff / admin / member role.', true);
+      return true;
+    }
+    const patch = {};
+    if (sub === 'admin') patch.admin_role_ids = [role.id];
+    if (sub === 'staff') patch.staff_role_ids = [role.id];
+    if (sub === 'member') patch.member_role_id = role.id;
+    if (sub === 'builder') patch.builder_role_id = role.id;
+    if (sub === 'customer') patch.customer_role_id = role.id;
+    updateConfig(interaction.guildId, patch);
+    logEvent({
+      guildId: interaction.guildId,
+      category: 'config',
+      message: 'Dev set ' + sub + ' role to ' + role.id,
+      actorId: interaction.user.id
+    });
+    await reply(interaction, sub.charAt(0).toUpperCase() + sub.slice(1) + ' role set', 'Saved ' + String(role) + '.');
+    return true;
   }
-  if (sub === 'staff') {
-    updateConfig(interaction.guildId, { staff_role_ids: [interaction.options.getRole('role', true).id] });
-    return reply(interaction, 'Staff role set', 'Saved.');
+
+  if (sub === 'addowner' || sub === 'removeowner') {
+    const user = interaction.options.getUser('user', true);
+    const current = Array.isArray(cfg.owner_user_ids) ? cfg.owner_user_ids.map(String) : [];
+    let next;
+    if (sub === 'addowner') next = Array.from(new Set(current.concat([user.id])));
+    else next = current.filter((id) => id !== user.id);
+    updateConfig(interaction.guildId, { owner_user_ids: next });
+    logEvent({
+      guildId: interaction.guildId,
+      category: 'config',
+      message: (sub === 'addowner' ? 'Added' : 'Removed') + ' extra owner ' + user.id,
+      actorId: interaction.user.id
+    });
+    await reply(
+      interaction,
+      sub === 'addowner' ? 'Extra owner added' : 'Extra owner removed',
+      String(user) + (sub === 'addowner' ? ' can now use owner-level bot commands.' : ' no longer has extra owner access.')
+    );
+    return true;
   }
-  if (sub === 'member') {
-    updateConfig(interaction.guildId, { member_role_id: interaction.options.getRole('role', true).id });
-    return reply(interaction, 'Member role set', 'Saved.');
-  }
-  return null;
+
+  await reply(interaction, '', 'Unknown /dev subcommand.', true);
+  return true;
 }
 
 module.exports = { handleRoleConfig };

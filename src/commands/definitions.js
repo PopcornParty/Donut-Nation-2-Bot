@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 
 const GIVEAWAY_MODES = [
   { name: 'Standard', value: 'standard' },
@@ -12,15 +12,20 @@ function buildCommands() {
     new SlashCommandBuilder().setName('help').setDescription('Show commands you can use'),
     new SlashCommandBuilder()
       .setName('dev')
-      .setDescription('Dev-only role controls')
-      .setDefaultMemberPermissions('0')
+      .setDescription('Dev / server-owner only: set Admin, Staff, and other bot roles')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .addSubcommand((s) => s.setName('admin').setDescription('Set the Admin role').addRoleOption((o) => o.setName('role').setDescription('Admin role').setRequired(true)))
       .addSubcommand((s) => s.setName('staff').setDescription('Set the Staff role').addRoleOption((o) => o.setName('role').setDescription('Staff role').setRequired(true)))
       .addSubcommand((s) => s.setName('member').setDescription('Set the Member role').addRoleOption((o) => o.setName('role').setDescription('Member role').setRequired(true)))
-      .addSubcommand((s) => s.setName('admin').setDescription('Set the Admin role').addRoleOption((o) => o.setName('role').setDescription('Admin role').setRequired(true)))
-      .addSubcommand((s) => s.setName('view').setDescription('View saved roles')),
+      .addSubcommand((s) => s.setName('builder').setDescription('Set the Builder role').addRoleOption((o) => o.setName('role').setDescription('Builder role').setRequired(true)))
+      .addSubcommand((s) => s.setName('customer').setDescription('Set the Customer role').addRoleOption((o) => o.setName('role').setDescription('Customer role').setRequired(true)))
+      .addSubcommand((s) => s.setName('addowner').setDescription('Give a trusted user extra owner bot access').addUserOption((o) => o.setName('user').setDescription('User').setRequired(true)))
+      .addSubcommand((s) => s.setName('removeowner').setDescription('Remove extra owner bot access').addUserOption((o) => o.setName('user').setDescription('User').setRequired(true)))
+      .addSubcommand((s) => s.setName('view').setDescription('View saved Dev role settings')),
     new SlashCommandBuilder()
       .setName('config')
       .setDescription('Configure channels and bot settings')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addSubcommand((s) => s.setName('view').setDescription('View current configuration'))
       .addSubcommand((s) => s.setName('set').setDescription('Update a channel or tax setting')
         .addStringOption((o) => o.setName('key').setDescription('Setting to change').setRequired(true).addChoices(
@@ -36,6 +41,7 @@ function buildCommands() {
     new SlashCommandBuilder()
       .setName('partner')
       .setDescription('Automatic partnership system')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addSubcommand((s) => s.setName('setup').setDescription('Set partnership announcement channel and role')
         .addChannelOption((o) => o.setName('channel').setDescription('Channel to ping').setRequired(true).addChannelTypes(ChannelType.GuildText))
         .addRoleOption((o) => o.setName('role').setDescription('Role to ping').setRequired(true)))
@@ -47,6 +53,7 @@ function buildCommands() {
     new SlashCommandBuilder()
       .setName('giveaway')
       .setDescription('Create and manage giveaways')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
       .addSubcommand((s) => s.setName('create').setDescription('Create a giveaway')
         .addStringOption((o) => o.setName('prize').setDescription('What people can win').setRequired(true).setMaxLength(100))
         .addStringOption((o) => o.setName('duration').setDescription('How long until it ends, like 10m, 2h, or 1d').setRequired(true))
@@ -63,6 +70,7 @@ function buildCommands() {
     new SlashCommandBuilder()
       .setName('dailygiveaway')
       .setDescription('Automatic daily giveaway host')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .addSubcommand((s) => s.setName('setup').setDescription('Configure the daily giveaway')
         .addChannelOption((o) => o.setName('channel').setDescription('Channel').setRequired(true).addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
         .addStringOption((o) => o.setName('time').setDescription('Time HH:MM').setRequired(true))
@@ -79,6 +87,7 @@ function buildCommands() {
     new SlashCommandBuilder()
       .setName('payment')
       .setDescription('Builder payment tracker')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
       .addSubcommand((s) => s.setName('create').setDescription('Create a payment')
         .addUserOption((o) => o.setName('builder').setDescription('Builder').setRequired(true))
         .addUserOption((o) => o.setName('customer').setDescription('Customer').setRequired(true)))
