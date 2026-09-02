@@ -31,17 +31,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'dev') {
-        const { handleRoleConfig } = require('./handlers/role-config');
-        const extra = await handleRoleConfig(interaction);
+        const extra = await require('./handlers/role-config').handleRoleConfig(interaction);
         if (extra) return extra;
       }
-      const { handleExtra } = require('./handlers/extra-commands');
-      const extraCmd = await handleExtra(interaction, client);
+      const extraCmd = await require('./handlers/extra-commands').handleExtra(interaction, client);
       if (extraCmd) return extraCmd;
       await handleChatCommand(interaction, client);
       return;
     }
-    if (interaction.isButton()) { await handleButton(interaction, client); return; }
+    if (interaction.isButton()) {
+      const extraBtn = await require('./handlers/extra-buttons').handleExtraButton(interaction);
+      if (extraBtn) return extraBtn;
+      await handleButton(interaction, client);
+      return;
+    }
     if (interaction.isModalSubmit()) { await handleModal(interaction, client); return; }
     if (interaction.isStringSelectMenu()) await handleSelect(interaction, client);
   } catch (err) {
