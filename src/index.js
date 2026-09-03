@@ -30,7 +30,7 @@ client.once(Events.ClientReady, async (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === 'dev' || interaction.commandName === 'transferowner') {
+      if (interaction.commandName === 'dev') {
         const extra = await require('./handlers/role-config').handleRoleConfig(interaction);
         if (extra) return extra;
       }

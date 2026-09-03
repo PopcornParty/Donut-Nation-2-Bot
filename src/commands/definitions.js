@@ -5,7 +5,6 @@ function buildCommands() {
   return [
     new SlashCommandBuilder().setName('help').setDescription('Show commands you can use'),
     new SlashCommandBuilder().setName('showcase').setDescription('Show what the bot can do and how to use it'),
-    new SlashCommandBuilder().setName('transferowner').setDescription('Dev only: transfer server ownership if the bot owns the server').addUserOption((o) => o.setName('user').setDescription('New owner').setRequired(true)),
     new SlashCommandBuilder().setName('dev').setDescription('Admin and Dev role controls')
       .addSubcommand((s) => s.setName('staff').setDescription('Set the Staff role').addRoleOption((o) => o.setName('role').setDescription('Staff role').setRequired(true)))
       .addSubcommand((s) => s.setName('member').setDescription('Set the Member role').addRoleOption((o) => o.setName('role').setDescription('Member role').setRequired(true)))
@@ -15,8 +14,7 @@ function buildCommands() {
         .addStringOption((o) => o.setName('name').setDescription('Role name if creating'))
         .addUserOption((o) => o.setName('user').setDescription('Member to give the role to'))
         .addRoleOption((o) => o.setName('role').setDescription('Role to give')))
-      .addSubcommand((s) => s.setName('view').setDescription('View saved roles'))
-      .addSubcommand((s) => s.setName('transfer').setDescription('Transfer server ownership if the bot owns the server').addUserOption((o) => o.setName('user').setDescription('New owner').setRequired(true))),
+      .addSubcommand((s) => s.setName('view').setDescription('View saved roles')),
     new SlashCommandBuilder().setName('giveaway').setDescription('Create and manage giveaways')
       .addSubcommand((s) => s.setName('create').setDescription('Create a giveaway')
         .addStringOption((o) => o.setName('prize').setDescription('Prize').setRequired(true))
