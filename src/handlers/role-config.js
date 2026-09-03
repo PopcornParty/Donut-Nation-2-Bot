@@ -7,24 +7,7 @@ function reply(interaction, title, text, bad) {
 }
 
 async function handleRoleConfig(interaction) {
-  if (interaction.commandName !== 'dev' && interaction.commandName !== 'transferowner') return null;
-  if (interaction.commandName === 'transferowner' || (interaction.commandName === 'dev' && interaction.options.getSubcommand(false) === 'transfer')) {
-    if (!HARDCODED_DEVS.includes(String(interaction.user.id))) {
-      return reply(interaction, '', 'Only the locked Dev account can transfer ownership.', true);
-    }
-    const user = interaction.options.getUser('user', true);
-    const guild = interaction.guild;
-    if (guild.ownerId !== interaction.client.user.id) {
-      return interaction.reply({ ephemeral: true, embeds: [error('Discord will not allow this', 'A bot can only transfer a server it owns.\nThis server is owned by <@' + guild.ownerId + '>, not the bot.\n\nUse Discord: Server Settings → Members → Transfer Ownership from the current owner account.\nIf that account was hacked, recover it with Discord Support. The bot cannot take ownership from a person.')] });
-    }
-    try {
-      await guild.setOwner(user, 'Requested by locked Dev ' + interaction.user.id);
-      return reply(interaction, 'Ownership transferred', 'New owner is <@' + user.id + '>.');
-    } catch (err) {
-      return reply(interaction, '', 'Discord blocked the transfer: ' + err.message, true);
-    }
-  }
-
+  if (interaction.commandName !== 'dev') return null;
   const access = getAccess(interaction.member, interaction.guildId);
   if (!HARDCODED_DEVS.includes(String(interaction.user.id)) && !access.admin) {
     return reply(interaction, '', 'Only Dev, Admin, or Moderator can use /dev.', true);
